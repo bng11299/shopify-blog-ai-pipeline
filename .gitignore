@@ -1,0 +1,33 @@
+# Secrets — never commit
+.env
+
+# Site-specific values (brand, URLs, store handle, blog GID) — the single local
+# handover file. Copy config.py's placeholders here and fill in. Never commit.
+config_local.py
+
+# Personal Claude Code overrides (accumulates approved-command history)
+.claude/settings.local.json
+# Audit hook log (tool-call history) — local only
+.claude/audit.log
+
+# OAuth CSRF nonce (shopify_oauth.py) — transient
+.oauth_state
+
+# Pipeline runtime artifacts — regenerated every run, and hold client business
+# data (keyword rankings, link catalogue, generated article content).
+# Never commit; keep this repo generic + client-data-free.
+keyword.json
+post.json
+generation_request.json
+generation_response.json
+review_request.json
+seo_report.json
+preview.html
+internal_links.json
+needs_manual_review.json
+posted_keywords.json
+images/
+
+__pycache__/
+*.pyc
+.pytest_cache/

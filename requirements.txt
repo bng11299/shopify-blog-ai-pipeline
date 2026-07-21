@@ -1,0 +1,8 @@
+# Shopify blog pipeline — Python dependencies
+#   python -m pip install -r requirements.txt
+#   then: python -m playwright install chromium   (scraper browser)
+
+anthropic>=0.116        # generator.py / editor.py (Claude Messages API + tool_use)
+google-genai>=2.11       # imagegen.py (nano banana image generation + review)
+playwright>=1.45         # scraper.py (SerpReport scraping)
+requests>=2.31           # publisher.py (Shopify GraphQL Admin API + staged uploads)

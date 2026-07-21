@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest*)",
+      "Bash(python -m pip install*)",
+      "Bash(python scraper.py*)",
+      "Bash(python generator.py*)",
+      "Bash(python editor.py*)",
+      "Bash(python imagegen.py*)",
+      "Bash(python final_check.py*)",
+      "Bash(python publisher.py*)",
+      "Bash(python run.py*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(config_local.py)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          { "type": "command", "command": "python .claude/hooks/guard.py" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          { "type": "command", "command": "python .claude/hooks/audit.py" }
+        ]
+      }
+    ]
+  }
+}
