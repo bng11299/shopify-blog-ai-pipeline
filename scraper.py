@@ -88,6 +88,14 @@ MAX_POSITION = 12
 # Ignore keywords with negligible local search demand.
 MIN_LOCAL_VOL = 10
 
+# This SerpReport project tracks BOTH shop.winpro.com.sg (Shopify, this pipeline)
+# and winpro.com.sg (WordPress, the winpro-seo-pipeline repo). The two are
+# distinguishable only by the "URL Found" path, so a keyword ranking on the
+# WordPress services site must never be handed to this pipeline: it would produce
+# a storefront blog article for a services term that already ranks there.
+# Shopify storefront paths always sit under one of these prefixes.
+STOREFRONT_URL_PREFIXES = ("/collections/", "/products/", "/blogs/", "/pages/")
+
 POSTED_LOG = HERE / "posted_keywords.json"   # keywords already published
 KEYWORD_OUT = HERE / "keyword.json"          # output for generator.py
 
@@ -342,9 +350,24 @@ def scrape_keywords() -> list[dict]:
 
 # ── Selection ───────────────────────────────────────────────────────────────
 
+def is_own_site(url_found: str) -> bool:
+    """True when a SerpReport "URL Found" path belongs to THIS site (the storefront).
+
+    Deny-by-default: a blank or unattributable path is treated as NOT ours, so an
+    ambiguous row can never be published as a storefront article. See
+    STOREFRONT_URL_PREFIXES for why this filter exists.
+    """
+    path = (url_found or "").strip()
+    if not path:
+        return False
+    return path.startswith(STOREFRONT_URL_PREFIXES)
+
+
 def pick_keyword(keywords: list[dict]) -> dict | None:
     posted = load_posted()
     candidates = []
+    skipped_other_site = 0
+    skipped_unattributable = 0
 
     for kw in keywords:
         if not (MIN_POSITION <= kw["position"] <= MAX_POSITION):
@@ -353,8 +376,20 @@ def pick_keyword(keywords: list[dict]) -> dict | None:
             continue
         if kw["local_vol"] < MIN_LOCAL_VOL:
             continue
+        if not is_own_site(kw["url_found"]):
+            # Never silently shrink the pool — report what was dropped and why.
+            if (kw["url_found"] or "").strip():
+                skipped_other_site += 1
+            else:
+                skipped_unattributable += 1
+            continue
         kw["score"] = round(score_keyword(kw["position"], kw["change"], kw["local_vol"]), 2)
         candidates.append(kw)
+
+    if skipped_other_site or skipped_unattributable:
+        print(f"[scraper] Site filter: skipped {skipped_other_site} in-band keyword(s) "
+              f"ranking on the winpro.com.sg WordPress site and {skipped_unattributable} "
+              f"with no attributable URL (this pipeline publishes to the storefront only).")
 
     if not candidates:
         return None

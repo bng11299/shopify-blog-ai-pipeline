@@ -318,3 +318,69 @@ def test_oauth_authorize_url_shape():
     assert "client_id=clientid" in url
     assert "scope=write_content" in url  # scopes present, urlencoded
     assert "state=nonce1" in url
+
+
+# ── scraper: the SerpReport project is SHARED with the WordPress site ──────────
+# The project tracks shop.winpro.com.sg AND winpro.com.sg; rows are told apart
+# only by the "URL Found" path. Without the site filter the picker can hand a
+# WordPress services keyword to this storefront pipeline. Negative tests first.
+
+def _scraper():
+    pytest.importorskip("playwright")
+    import scraper
+    return scraper
+
+
+def test_is_own_site_rejects_wordpress_paths():
+    scraper = _scraper()
+    for path in ("/it-managed-services/",
+                 "/vulnerability-assessment-penetration-testing-vapt/",
+                 "/it-helpdesk/help-desk-it-support-in-singapore/",
+                 "/welcome-to-microsoft-365/",
+                 "/wp-content/uploads/2022/12/x.png"):
+        assert scraper.is_own_site(path) is False, path
+
+
+def test_is_own_site_denies_unattributable_paths():
+    # Deny-by-default: no URL means we cannot prove the keyword ranks on OUR
+    # site, so it must not be publishable here.
+    scraper = _scraper()
+    for path in ("", "   ", None):
+        assert scraper.is_own_site(path) is False
+
+
+def test_is_own_site_accepts_storefront_paths():
+    scraper = _scraper()
+    for path in ("/collections/all",
+                 "/products/thinkpad-x1",
+                 "/blogs/news/lenovo-tablet-series-overview",
+                 "/pages/locate-us"):
+        assert scraper.is_own_site(path) is True, path
+
+
+def test_pick_keyword_never_returns_a_wordpress_keyword(monkeypatch):
+    scraper = _scraper()
+    monkeypatch.setattr(scraper, "load_posted", lambda: set())
+    rows = [
+        # Far higher volume, but it ranks on the WordPress services site.
+        {"keyword": "microsoft 365", "position": 11, "change": 0, "local_vol": 40500,
+         "url_found": "/welcome-to-microsoft-365/"},
+        # Lower volume, but genuinely ours.
+        {"keyword": "lenovo tablet", "position": 8, "change": -3, "local_vol": 1600,
+         "url_found": "/blogs/news/lenovo-tablet-series-overview"},
+    ]
+    best = scraper.pick_keyword(rows)
+    assert best is not None
+    assert best["keyword"] == "lenovo tablet"
+    assert scraper.is_own_site(best["url_found"])
+
+
+def test_pick_keyword_returns_none_when_only_wordpress_rows_qualify():
+    scraper = _scraper()
+    rows = [
+        {"keyword": "microsoft 365", "position": 11, "change": 0, "local_vol": 40500,
+         "url_found": "/welcome-to-microsoft-365/"},
+        {"keyword": "it helpdesk", "position": 8, "change": 0, "local_vol": 320,
+         "url_found": "/it-helpdesk-services/"},
+    ]
+    assert scraper.pick_keyword(rows) is None
